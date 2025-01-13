@@ -2,8 +2,7 @@ const mongoose = require("mongoose");
 
 const studentSchema = new mongoose.Schema({
   enrollmentDate: {
-    type: Date
-    // default: null
+    type: Date,
   },
   institutes: {
     type: String,
@@ -19,6 +18,7 @@ const studentSchema = new mongoose.Schema({
   },
   email: {
     type: String,
+    required: true, // Ensure email is mandatory
   },
   address: {
     type: String,
@@ -55,7 +55,15 @@ const studentSchema = new mongoose.Schema({
   },
   school: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "admin",
+    ref: "Admin", // Ensure "admin" is correctly defined elsewhere
+  },
+  sclassName: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "sclass", // Replace "class" with the correct model name for classes
+  },
+  password: {
+    type: String,
+    required: true, // Ensure password is mandatory
   },
 });
 

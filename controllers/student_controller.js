@@ -1,8 +1,52 @@
 const bcrypt = require("bcrypt");
 const Student = require("../models/studentSchema.js");
-const Subject = require("../models/subjectSchema.js"); 
+const Subject = require("../models/subjectSchema.js");
 const xlsx = require("xlsx");
 const excelDateToJSDate = require("../utils/dateFunc.js");
+
+// Parse dates from Excel or string
+const parseDate = (date) => {
+  if (typeof date === "string") {
+    const trimmedDate = date.trim();
+    if (!trimmedDate) return null;
+    const parsedDate = new Date(trimmedDate);
+    if (!isNaN(parsedDate)) return parsedDate;
+  }
+  if (typeof date === "number") return excelDateToJSDate(date);
+  return null; // Invalid or empty
+};
+// Common function to check and prepare student data
+const prepareStudentData = async (data, adminID, studentPassword) => {
+  const {
+    email,
+    studentName,
+    sclassName,
+    courseName,
+    enrollmentDate,
+    recoveryDate,
+    ...otherFields
+  } = data;
+
+  if (!email || !studentName || !sclassName || !courseName) {
+    throw new Error(`Missing required fields for student: ${email || "Unknown"}`);
+  }
+
+  const hashedPassword = studentPassword
+    ? await bcrypt.hash(studentPassword, 10)
+    : undefined;
+
+  return {
+    email,
+    studentName,
+    sclassName,
+    courseName,
+    enrollmentDate: parseDate(enrollmentDate),
+    recoveryDate: parseDate(recoveryDate),
+    password: hashedPassword,
+    school: adminID,
+    ...otherFields,
+  };
+};
 
 const uploadStudents = async (req, res) => {
   try {
@@ -10,78 +54,49 @@ const uploadStudents = async (req, res) => {
     const workbook = xlsx.readFile(filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const studentsData = xlsx.utils.sheet_to_json(sheet);
-    const parseDate = (date) => {
-      if (typeof date === "string") {
-        date = date.trim();
-        if (date === "") {
-          return null;  // Return null for empty or whitespace strings
-        }
-      }
-      if (typeof date === "number") {
-        return excelDateToJSDate(date);
-      } else if (typeof date === "string" && date) {
-        const parsedDate = new Date(date);
-        if (!isNaN(parsedDate)) {
-          return parsedDate;
-        } else {
-          throw new Error(`Invalid date format: ${date}`);
-        }
-      }
-      return null;
-    };
+    const adminID = req.body.adminID;
+    const results = [];
 
-    let results = [];
-    for (let studentData of studentsData) {
-      const studentEmail = studentData.email || 'unknown mail'
-      // Parse recoveryDate to a Date object if it exists
-      if (studentData.recoveryDate) {
-        try {
-          studentData.recoveryDate = parseDate(studentData.recoveryDate)
-        } catch (error) {
-          throw new Error(`Invalid recoveryDate format for student with email: ${studentEmail}`);
-        }
-      }
-
-      // Ensure examResult and attendance are arrays
-      studentData.examResult = Array.isArray(studentData.examResult)
-        ? studentData.examResult
-        : [];
-      studentData.attendance = Array.isArray(studentData.attendance)
-        ? studentData.attendance
-        : [];
-
-      // Check if the student already exists
-      const existingStudent = await Student.findOne({
-        email: studentData.email,
-        school: req.body.adminID,
-      });
-
-      if (existingStudent) {
-        results.push({ email: studentData.email, status: "Exists" });
-      } else {
-        const student = new Student({
-          ...studentData,
-          school: req.body.adminID,
+    for (const studentData of studentsData) {
+      const email = studentData.email || "Unknown";
+      try {
+        // Check if student already exists
+        const existingStudent = await Student.findOne({
+          email: email.toLowerCase(),
+          school: adminID,
         });
 
-        let result = await student.save();
-        results.push({ email: studentData.email, status: "Registered" });
+        if (existingStudent) {
+          results.push({ email, status: "Exists" });
+          continue;
+        }
+
+        // Prepare student data
+        const newStudentData = await prepareStudentData(
+          studentData,
+          adminID,
+          "default123" // Default password for new uploads
+        );
+
+        // Save student
+        const student = new Student(newStudentData);
+        await student.save();
+        results.push({ email, status: "Registered" });
+      } catch (error) {
+        results.push({ email, status: `Error: ${error.message}` });
       }
     }
 
     res.status(200).json({ message: "Students Uploaded", results });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ error: "Failed to process the file", details: err.message });
+    res.status(500).json({ error: "Failed to process the file", details: err.message });
   }
 };
+
+// Student Registration Function
 const studentRegister = async (req, res) => {
   try {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPass = await bcrypt.hash(req.body.password, salt);
-
     const existingStudent = await Student.findOne({
       email: req.body.email,
       school: req.body.adminID,
@@ -89,23 +104,24 @@ const studentRegister = async (req, res) => {
     });
 
     if (existingStudent) {
-      res.send({ message: "Email already exists" });
-    } else {
-      const student = new Student({
-        ...req.body,
-        school: req.body.adminID,
-        password: hashedPass,
-      });
-
-      let result = await student.save();
-
-      result.password = undefined;
-      res.send(result);
+      return res.status(400).json({ message: "Email already exists" });
     }
+
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const newStudent = new Student({
+      ...req.body,
+      password: hashedPassword,
+      school: req.body.adminID,
+    });
+
+    const result = await newStudent.save();
+    result.password = undefined; // Hide password in the response
+    res.status(201).json(result);
   } catch (err) {
-    res.status(500).json(err);
+    res.status(500).json({ error: err.message });
   }
 };
+
 const studentLogIn = async (req, res) => {
   try {
     let student = await Student.findOne({
@@ -139,14 +155,13 @@ const studentLogIn = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const getStudents = async (req, res) => {
   try {
-    let students = await Student.find({ school: req.params.id })
-
-    // .populate(
-    //   "sclassName",
-    //   "sclassName"
-    // );
+    let students = await Student.find({ school: req.params.id }).populate(
+      "sclassName",
+      "sclassName"
+    );
     if (students.length > 0) {
       let modifiedStudents = students.map((student) => {
         return { ...student._doc, password: undefined };
@@ -159,6 +174,7 @@ const getStudents = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const getStudentDetail = async (req, res) => {
   try {
     let student = await Student.findById(req.params.id)
@@ -176,6 +192,7 @@ const getStudentDetail = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const deleteStudent = async (req, res) => {
   try {
     const result = await Student.findByIdAndDelete(req.params.id);
@@ -184,6 +201,7 @@ const deleteStudent = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const deleteStudents = async (req, res) => {
   try {
     const result = await Student.deleteMany({ school: req.params.id });
@@ -196,6 +214,7 @@ const deleteStudents = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const deleteStudentsByClass = async (req, res) => {
   try {
     const result = await Student.deleteMany({ sclassName: req.params.id });
@@ -208,6 +227,7 @@ const deleteStudentsByClass = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 const updateStudent = async (req, res) => {
   try {
     if (req.body.password) {
@@ -226,6 +246,7 @@ const updateStudent = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const updateExamResult = async (req, res) => {
   const { subName, marksObtained } = req.body;
 
@@ -252,6 +273,7 @@ const updateExamResult = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const studentAttendance = async (req, res) => {
   const { subName, status, date } = req.body;
 
@@ -291,6 +313,7 @@ const studentAttendance = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const clearAllStudentsAttendanceBySubject = async (req, res) => {
   const subName = req.params.id;
 
@@ -304,6 +327,7 @@ const clearAllStudentsAttendanceBySubject = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const clearAllStudentsAttendance = async (req, res) => {
   const schoolId = req.params.id;
 
@@ -318,6 +342,7 @@ const clearAllStudentsAttendance = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const removeStudentAttendanceBySubject = async (req, res) => {
   const studentId = req.params.id;
   const subName = req.body.subId;
@@ -333,6 +358,7 @@ const removeStudentAttendanceBySubject = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const removeStudentAttendance = async (req, res) => {
   const studentId = req.params.id;
 
@@ -347,6 +373,7 @@ const removeStudentAttendance = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 module.exports = {
   uploadStudents,
   studentRegister,
@@ -365,4 +392,3 @@ module.exports = {
   removeStudentAttendanceBySubject,
   removeStudentAttendance,
 };
-//fhjjgkhlkkl

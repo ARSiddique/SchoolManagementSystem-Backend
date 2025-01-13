@@ -4,21 +4,23 @@ const complainSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'student',
-        required: true
+        required: true,
     },
     date: {
         type: Date,
-        required: true
+        default: Date.now, // Default to the current date
+        required: true,
     },
     complaint: {
         type: String,
-        required: true
+        required: true,
+        trim: true, // Trim extra spaces
     },
     school: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'admin',
         required: true,
-    }
+    },
 });
 
-module.exports = mongoose.model("complain", complainSchema);
+module.exports = mongoose.model("Complain", complainSchema);
