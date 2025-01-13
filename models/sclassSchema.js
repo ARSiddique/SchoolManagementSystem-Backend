@@ -7,8 +7,9 @@ const sclassSchema = new mongoose.Schema({
     },
     school: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Admin'
+        ref: 'admin'
     },
 }, { timestamps: true });
 
 module.exports = mongoose.model("sclass", sclassSchema);
+

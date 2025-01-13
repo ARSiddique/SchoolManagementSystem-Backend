@@ -20,6 +20,10 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true, // Ensure email is mandatory
   },
+  studentImage: {
+    type: String, // Store the image's file path or URL
+  },
+
   address: {
     type: String,
   },
