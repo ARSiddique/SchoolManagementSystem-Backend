@@ -73,7 +73,7 @@ const uploadStudents = async (req, res) => {
 
         // Prepare student data
         const newStudentData = await prepareStudentData(
-          studentData,
+          { ...studentData, studentImage: studentData.studentImage || null },
           adminID,
           "default123" // Default password for new uploads
         );
@@ -94,6 +94,7 @@ const uploadStudents = async (req, res) => {
   }
 };
 
+
 // Student Registration Function
 const studentRegister = async (req, res) => {
   try {
@@ -107,17 +108,28 @@ const studentRegister = async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
+    // Handle the student image URL if it exists
+    let studentImage = null;
+    if (req.file) {
+      studentImage = `${req.protocol}://${req.get("host")}/uploads/images/${req.file.filename}`;
+    }
+
+    // Hash password
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
     const newStudent = new Student({
       ...req.body,
       password: hashedPassword,
+      studentImage,
       school: req.body.adminID,
     });
 
     const result = await newStudent.save();
-    result.password = undefined; // Hide password in the response
+
+    result.password = undefined; // Don't include password in the response
     res.status(201).json(result);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };

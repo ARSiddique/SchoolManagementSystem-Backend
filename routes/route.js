@@ -79,7 +79,7 @@ router.get("/Admin/:id", getAdminDetail);
 // Student
 
 router.post("/upload", upload.single("file"), uploadStudents);
-router.post("/StudentReg", studentRegister);
+router.post("/StudentReg", upload.single("studentImage"), studentRegister);
 router.post("/StudentLogin", studentLogIn);
 
 router.get("/Students/:id", getStudents);
