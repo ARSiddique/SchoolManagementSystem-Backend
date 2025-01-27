@@ -4,9 +4,7 @@ const router = require("express").Router();
 const upload = require("../middleware/fileUpload.js");
 
 const {
-    adminRegister,
-    adminLogIn,
-    getAdminDetail,
+    adminRegister, adminLogin, getAdminDetail, updateAdmin, deleteAdmin, forgetPassword, resetPassword
 } = require("../controllers/admin-controller.js");
 
 const {
@@ -68,13 +66,13 @@ const {
 } = require("../controllers/teacher-controller.js");
 
 // Admin
-router.post("/AdminReg", adminRegister);
-router.post("/AdminLogin", adminLogIn);
-
-router.get("/Admin/:id", getAdminDetail);
-// router.delete("/Admin/:id", deleteAdmin)
-
-// router.put("/Admin/:id", updateAdmin)
+router.post("/register", adminRegister);
+router.post("/login", adminLogin);
+router.get("/:id", getAdminDetail);
+router.put("/:id", updateAdmin);
+router.delete("/:id", deleteAdmin);
+router.post("/forget-password", forgetPassword);
+router.post("/reset-password/:token", resetPassword);
 
 // Student
 

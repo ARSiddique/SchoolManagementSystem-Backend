@@ -94,7 +94,6 @@ const uploadStudents = async (req, res) => {
   }
 };
 
-
 // Student Registration Function
 const studentRegister = async (req, res) => {
   try {
