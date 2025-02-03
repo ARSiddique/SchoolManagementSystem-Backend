@@ -18,11 +18,11 @@ const studentSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true, // Ensure email is mandatory
+    required: true,
   },
   studentImage: {
-    type: String, // File path or URL of the image
-    required: false, // Make this optional, as not all students may have images
+    type: String,
+    required: false,
   },
 
   address: {
@@ -60,16 +60,20 @@ const studentSchema = new mongoose.Schema({
   },
   school: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Admin", // Ensure "admin" is correctly defined elsewhere
+    ref: "admin",
   },
   sclassName: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "sclass", // Replace "class" with the correct model name for classes
+    ref: "sclass",
   },
   password: {
     type: String,
-    required: true, // Ensure password is mandatory
+    required: true,
   },
+  role: {
+    type: String,
+    default: "Student"
+  }
 });
 
 module.exports = mongoose.model("student", studentSchema);

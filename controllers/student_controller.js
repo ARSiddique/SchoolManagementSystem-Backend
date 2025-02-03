@@ -135,35 +135,44 @@ const studentRegister = async (req, res) => {
 
 const studentLogIn = async (req, res) => {
   try {
+    console.log("Login request received:", req.body);
+
     let student = await Student.findOne({
-      email: req.body.email,
-      // studentName: req.body.studentName,
+      email: req.body.email.toLowerCase(), // Ensure email is case-insensitive
     });
-    console.log("student", student);
-    if (student) {
-      console.log("testing");
-      const validated = bcrypt.compare(req.body.password, student.password);
-      console.log("validated", validated);
-      if (validated) {
-        student = await student.populate("school", "schoolName");
-        student = await student.populate("sclassName", "sclassName");
-        student.password = undefined;
-        // student.examResult = undefined;
-        // student.attendance = undefined;
-        res.send(student);
-        console.log(
-          `student = await student.populate("school", "schoolName");
-        student = await student.populate("sclassName", "sclassName");`,
-          student
-        );
-      } else {
-        res.send({ message: "Invalid password" });
-      }
-    } else {
-      res.send({ message: "Student not found" });
+
+    if (!student) {
+      console.log("Student not found!");
+      return res.status(404).json({ message: "Student not found" });
     }
+
+    console.log("Student found in DB:", student);
+
+    console.log("Comparing passwords...");
+    console.log("Entered Password:", req.body.password);
+    console.log("Stored Hashed Password:", student.password);
+
+    const validated = await bcrypt.compare(req.body.password, student.password);
+
+    console.log("Password validation result:", validated);
+
+    if (!validated) {
+      console.log("Invalid password!");
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    console.log("Password matched! Fetching student details...");
+
+    student = await student.populate("school", "schoolName");
+    student = await student.populate("sclassName", "sclassName");
+
+    student.password = undefined; // Hide password from response
+    console.log("Final student data:", student);
+
+    return res.status(200).json(student);
   } catch (err) {
-    res.status(500).json(err);
+    console.error("Error in login:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
