@@ -5,26 +5,34 @@ const transporter = require("../utils/emailTransporter");
 
 const adminRegister = async (req, res) => {
     try {
-        const admin = new Admin({
-            ...req.body
-        });
+        const { email, password, schoolName } = req.body;
 
-        const existingAdminByEmail = await Admin.findOne({ email: req.body.email });
-        const existingSchool = await Admin.findOne({ schoolName: req.body.schoolName });
+        // Check if email or school name already exists
+        const existingAdminByEmail = await Admin.findOne({ email });
+        const existingSchool = await Admin.findOne({ schoolName });
 
         if (existingAdminByEmail) {
-            res.send({ message: 'Email already exists' });
+            return res.status(400).json({ message: 'Email already exists' });
         }
-        else if (existingSchool) {
-            res.send({ message: 'School name already exists' });
+        if (existingSchool) {
+            return res.status(400).json({ message: 'School name already exists' });
         }
-        else {
-            let result = await admin.save();
-            result.password = undefined;
-            res.send(result);
-        }
+
+        // Hash password before saving
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create new admin with hashed password
+        const admin = new Admin({
+            ...req.body,
+            password: hashedPassword,
+        });
+
+        let result = await admin.save();
+        result.password = undefined; // Remove password from response
+
+        res.status(201).json(result);
     } catch (err) {
-        res.status(500).json(err);
+        res.status(500).json({ message: "Error registering admin", error: err.message });
     }
 };
 const adminLogIn = async (req, res) => {

@@ -142,36 +142,36 @@ const studentLogIn = async (req, res) => {
     });
 
     if (!student) {
-      console.log("Student not found!");
+      // console.log("Student not found!");
       return res.status(404).json({ message: "Student not found" });
     }
 
-    console.log("Student found in DB:", student);
+    // console.log("Student found in DB:", student);
 
-    console.log("Comparing passwords...");
-    console.log("Entered Password:", req.body.password);
-    console.log("Stored Hashed Password:", student.password);
+    // console.log("Comparing passwords...");
+    // console.log("Entered Password:", req.body.password);
+    // console.log("Stored Hashed Password:", student.password);
 
     const validated = await bcrypt.compare(req.body.password, student.password);
 
-    console.log("Password validation result:", validated);
+    // console.log("Password validation result:", validated);
 
     if (!validated) {
-      console.log("Invalid password!");
+      // console.log("Invalid password!");
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    console.log("Password matched! Fetching student details...");
+    // console.log("Password matched! Fetching student details...");
 
     student = await student.populate("school", "schoolName");
     student = await student.populate("sclassName", "sclassName");
 
     student.password = undefined; // Hide password from response
-    console.log("Final student data:", student);
+    // console.log("Final student data:", student);
 
     return res.status(200).json(student);
   } catch (err) {
-    console.error("Error in login:", err);
+    // console.error("Error in login:", err);
     return res.status(500).json({ error: err.message });
   }
 };
@@ -200,8 +200,8 @@ const getStudentDetail = async (req, res) => {
     let student = await Student.findById(req.params.id)
       .populate("school", "schoolName")
       .populate("sclassName", "sclassName")
-      .populate("examResult.subName", "subName")
-      .populate("attendance.subName", "subName sessions");
+      // .populate("examResult.subName", "subName")
+      // .populate("attendance.subName", "subName sessions");
     if (student) {
       student.password = undefined;
       res.send(student);
@@ -406,7 +406,6 @@ module.exports = {
   studentAttendance,
   deleteStudentsByClass,
   updateExamResult,
-
   clearAllStudentsAttendanceBySubject,
   clearAllStudentsAttendance,
   removeStudentAttendanceBySubject,
